@@ -10,13 +10,13 @@
 #ifndef SevSeg_h
 #define SevSeg_h
 
-#if defined(ARDUINO) && ARDUINO &gt;= 100
+#if defined(ARDUINO) && ARDUINO >= 100
 #include "Arduino.h"
 #else
 #include "WProgram.h"
 #endif
 
-#include &lt;avr/pgmspace.h&gt;
+#include <avr/pgmspace.h>;
 
 #define COMMON_CATHODE 0
 #define COMMON_ANODE 1
@@ -176,9 +176,7 @@ class SevSeg {
 	
 	//Public Functions
 	void DisplayString(char*, byte);
-	//  void NewNumber(int number_in, byte DecPlace_in);
-	void Begin(boolean mode_in, byte numOfDigits, byte digit1, byte digit2, byte digit3, byte digit4, byte segment1, byte segment2, byte segment3, byte segment4, byte segment5, byte segment6, byte segment7, byte segmentDP);
-	void Begin(boolean mode_in, byte numOfDigits, byte digit1, byte digit2, byte digit3, byte digit4, byte digitColon, byte digitApostrophe, byte segment1, byte segment2, byte segment3, byte segment4, byte segment5, byte segment6, byte segment7, byte segmentDP, byte segmentColon, byte segmentApostrophe);
+	void Begin(boolean mode_in, byte numOfDigits, byte digit1, byte digit2, byte digit3, byte digit4, byte latch, byte data, byte clock);
 	void SetBrightness(byte percentBright);
 	
 	//Public Variables
@@ -192,9 +190,9 @@ class SevSeg {
 	boolean mode, DigitOn, DigitOff, SegOn, SegOff;
 	
 	byte digit1, digit2, digit3, digit4;
-	byte digitApostrophe, digitColon, segmentApostrophe, segmentColon;
 	byte segmentA, segmentB, segmentC, segmentD, segmentE, segmentF, segmentG, segmentDP;
-	
+	byte latchPin, dataPin, clockPin;
+
 	byte numberOfDigits;
 	
 	unsigned int brightnessDelay;
@@ -203,8 +201,6 @@ class SevSeg {
 	byte SegmentPins[8];
 	boolean lights[4][8];
 	byte nums[4];
-	
-	byte DecAposColon;
 };
 
 #endif
