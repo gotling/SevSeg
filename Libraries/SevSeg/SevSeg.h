@@ -184,16 +184,12 @@ class SevSeg {
 	private:
 	//Private Functions
 	void displayCharacter(byte characterToDisplay); //Illuminates the correct segments
-	void SplitNumber(int);
+	void shiftOut(byte myDataOut);
+	void shiftWrite(byte data);
 	
 	//Private Variables
-	boolean mode, DigitOn, DigitOff, SegOn, SegOff;
-	
-	byte digit1, digit2, digit3, digit4;
-	byte segmentA, segmentB, segmentC, segmentD, segmentE, segmentF, segmentG, segmentDP;
+	boolean mode, numberOfDigits, DigitOn, DigitOff, SegOn, SegOff;
 	byte latchPin, dataPin, clockPin;
-
-	byte numberOfDigits;
 	
 	unsigned int brightnessDelay;
 	

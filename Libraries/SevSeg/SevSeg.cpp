@@ -65,22 +65,19 @@ SevSeg::SevSeg() {
 }
 
 void SevSeg::Begin(boolean mode_in, byte numOfDigits,
-	byte dig1, byte dig2, byte dig3, byte dig4,
+	byte digit1, byte digit2, byte digit3, byte digit4,
 	byte latch, byte data, byte clock) {
-	//Bring all the variables in from the caller
 	numberOfDigits = numOfDigits;
-	digit1 = dig1;
-	digit2 = dig2;
-	digit3 = dig3;
-	digit4 = dig4;
-	segmentA = 0;
-	segmentB = 1;
-	segmentC = 2;
-	segmentD = 3;
-	segmentE = 4;
-	segmentF = 5;
-	segmentG = 6;
-	segmentDP = 7;
+
+	DigitPins[0] = digit1;
+	DigitPins[1] = digit2;
+	DigitPins[2] = digit3;
+	DigitPins[3] = digit4;
+
+	// We could skip SegmentPins array all together
+	for (int i = 0; i < 8; ++i) {
+		SegmentPins[i] = i;
+	}
 
 	latchPin = latch;
 	dataPin = data;
@@ -101,29 +98,26 @@ void SevSeg::Begin(boolean mode_in, byte numOfDigits,
 		SegOff = LOW;
 	}
 	
-	DigitPins[0] = digit1;
-	DigitPins[1] = digit2;
-	DigitPins[2] = digit3;
-	DigitPins[3] = digit4;
-	SegmentPins[0] = segmentA;
-	SegmentPins[1] = segmentB;
-	SegmentPins[2] = segmentC;
-	SegmentPins[3] = segmentD;
-	SegmentPins[4] = segmentE;
-	SegmentPins[5] = segmentF;
-	SegmentPins[6] = segmentG;
-	SegmentPins[7] = segmentDP;
-	
 	//Turn everything Off before setting pin as output
 	//Set all digit pins off. Low for common anode, high for common cathode
 	for (byte digit = 0 ; digit < numberOfDigits ; digit++) {
 		digitalWrite(DigitPins[digit], DigitOff);
 		pinMode(DigitPins[digit], OUTPUT);
 	}
-	//Set all segment pins off. High for common anode, low for common cathode
-	for (byte seg = 0 ; seg < 8 ; seg++) {
-		digitalWrite(SegmentPins[seg], SegOff);
-		pinMode(SegmentPins[seg], OUTPUT);
+
+	pinMode(latchPin, OUTPUT);
+	pinMode(dataPin, OUTPUT);
+	pinMode(clockPin, OUTPUT);
+
+	//clear everything out just in case to
+	//prepare shift register for bit shifting
+	digitalWrite(dataPin, LOW);
+	digitalWrite(clockPin, LOW);
+
+	if (SegOff) {
+		shiftWrite(0x00);
+	} else {
+		shiftWrite(0xFF);
 	}
 }
 
@@ -133,11 +127,68 @@ void SevSeg::Begin(boolean mode_in, byte numOfDigits,
 //We need to error check and map the incoming value
 void SevSeg::SetBrightness(byte percentBright) {
 	//Error check and scale brightnessLevel
-	if(percentBright > 100)
+	if(percentBright > 100) {
 		percentBright = 100;
+	}
 	brightnessDelay = map(percentBright, 0, 100, 0, FRAMEPERIOD); //map brightnessDelay to 0 to the max which is framePeriod
 }
 
+
+void SevSeg::shiftOut(byte myDataOut) {
+	// This shifts 8 bits out MSB first, 
+	//on the rising edge of the clock,
+	//clock idles low
+
+	//internal function setup
+	int pinState;
+
+	//for each bit in the byte myDataOut�
+	//NOTICE THAT WE ARE COUNTING DOWN in our for loop
+	//This means that %00000001 or "1" will go through such
+	//that it will be pin Q0 that lights. 
+	for (int i=7; i>=0; i--)  {
+		digitalWrite(clockPin, 0);
+
+		//if the value passed to myDataOut and a bitmask result 
+		// true then... so if we are at i=6 and our value is
+		// %11010100 it would the code compares it to %01000000 
+		// and proceeds to set pinState to 1.
+		if ( myDataOut & (1<<i) ) {
+			pinState= 1;
+		}
+		else {  
+			pinState= 0;
+		}
+
+		//Sets the pin to HIGH or LOW depending on pinState
+		digitalWrite(dataPin, pinState);
+		//register shifts bits on upstroke of clock pin  
+		digitalWrite(clockPin, 1);
+		//zero the data pin after shift to prevent bleed through
+		digitalWrite(dataPin, 0);
+	}
+
+	//stop shifting
+	digitalWrite(clockPin, 0);
+}
+
+void SevSeg::shiftWrite(byte data) {
+	digitalWrite(latchPin, LOW);
+
+	shiftOut(data);
+
+	digitalWrite(latchPin, HIGH);
+}
+
+byte flipByte(byte c) {
+  char r=0;
+  for(byte i = 0; i < 8; i++){
+    r <<= 1;
+    r |= c & 1;
+    c >>= 1;
+  }
+  return r;
+}
 
 //Refresh Display
 /*******************************************************************************************/
@@ -147,80 +198,34 @@ void SevSeg::SetBrightness(byte percentBright) {
 //Will turn the display on for a given amount of time - this helps control brightness
 void SevSeg::DisplayString(char* toDisplay, byte DecAposColon) {
 	//For the purpose of this code, digit = 1 is the left most digit, digit = 4 is the right most digit
-	for(byte digit = 1 ; digit < (numberOfDigits+1) ; digit++) {
-		switch(digit) {
-			case 1:
-			digitalWrite(digit1, DigitOn);
-			break;
-			case 2:
-			digitalWrite(digit2, DigitOn);
-			break;
-			case 3:
-			digitalWrite(digit3, DigitOn);
-			break;
-			case 4:
-			digitalWrite(digit4, DigitOn);
-			break;
-			//This only currently works for 4 digits
-		}
+	for(byte digit = 0 ; digit < numberOfDigits; digit++) {
+		digitalWrite(DigitPins[digit], DigitOn);
 		
 		//Here we access the array of segments
 		//This could be cleaned up a bit but it works
 		//displayCharacter(toDisplay[digit-1]); //Now display this digit
 		// displayArray (defined in SevSeg.h) decides which segments are turned on for each number or symbol
-		char characterToDisplay = toDisplay[digit-1];
-		if (characterToDisplay & 0x80) { // bit 7 enables bit-per-segment control
-			// Each bit of characterToDisplay turns on a single segment (from A-to-G)
-			if (characterToDisplay & 0x01) digitalWrite(segmentA, SegOn);
-			if (characterToDisplay & 0x02) digitalWrite(segmentB, SegOn);
-			if (characterToDisplay & 0x04) digitalWrite(segmentC, SegOn);
-			if (characterToDisplay & 0x08) digitalWrite(segmentD, SegOn);
-			if (characterToDisplay & 0x10) digitalWrite(segmentE, SegOn);
-			if (characterToDisplay & 0x20) digitalWrite(segmentF, SegOn);
-			if (characterToDisplay & 0x40) digitalWrite(segmentG, SegOn);
-		} else {
-			if (pgm_read_byte(&characterArray[characterToDisplay]) & (1<<6)) digitalWrite(segmentA, SegOn);
-			if (pgm_read_byte(&characterArray[characterToDisplay]) & (1<<5)) digitalWrite(segmentB, SegOn);
-			if (pgm_read_byte(&characterArray[characterToDisplay]) & (1<<4)) digitalWrite(segmentC, SegOn);
-			if (pgm_read_byte(&characterArray[characterToDisplay]) & (1<<3)) digitalWrite(segmentD, SegOn);
-			if (pgm_read_byte(&characterArray[characterToDisplay]) & (1<<2)) digitalWrite(segmentE, SegOn);
-			if (pgm_read_byte(&characterArray[characterToDisplay]) & (1<<1)) digitalWrite(segmentF, SegOn);
-			if (pgm_read_byte(&characterArray[characterToDisplay]) & (1<<0)) digitalWrite(segmentG, SegOn);
-		}
+		char characterToDisplay = toDisplay[digit];
+
+		byte character = pgm_read_byte(&characterArray[characterToDisplay]);
+		
+		shiftWrite(~characterToDisplay);
+		//shiftWrite(0xCC);
+
 		//Service the decimal point, apostrophe and colon
-		if ((DecAposColon & (1<<(digit-1))) && (digit < 5)) //Test DecAposColon to see if we need to turn on a decimal point
-		digitalWrite(segmentDP, SegOn);
+		// if ((DecAposColon & (1<<(digit))) && (digit < 5)) //Test DecAposColon to see if we need to turn on a decimal point
+		// 	digitalWrite(segmentDP, SegOn);
 		
 		delayMicroseconds(brightnessDelay + 1); //Display this digit for a fraction of a second (between 1us and 5000us, 500-2000 is pretty good)
 		//The + 1 is a bit of a hack but it removes the possible zero display (0 causes display to become bright and flickery)
 		//If you set this too long, the display will start to flicker. Set it to 25000 for some fun.
 		
 		//Turn off all segments
-		digitalWrite(segmentA, SegOff);
-		digitalWrite(segmentB, SegOff);
-		digitalWrite(segmentC, SegOff);
-		digitalWrite(segmentD, SegOff);
-		digitalWrite(segmentE, SegOff);
-		digitalWrite(segmentF, SegOff);
-		digitalWrite(segmentG, SegOff);
-		digitalWrite(segmentDP, SegOff);
+		shiftWrite(0xFF);
 		
 		//Turn off this digit
-		switch(digit) {
-			case 1:
-			digitalWrite(digit1, DigitOff);
-			break;
-			case 2:
-			digitalWrite(digit2, DigitOff);
-			break;
-			case 3:
-			digitalWrite(digit3, DigitOff);
-			break;
-			case 4:
-			digitalWrite(digit4, DigitOff);
-			break;
-			//This only currently works for 4 digits
-		}
+		digitalWrite(DigitPins[digit], DigitOff);
+
 		// The display is on for microSeconds(brightnessLevel + 1), now turn off for the remainder of the framePeriod
 		delayMicroseconds(FRAMEPERIOD - brightnessDelay + 1); //the +1 is a hack so that we can never have a delayMicroseconds(0), causes display to flicker
 	}
