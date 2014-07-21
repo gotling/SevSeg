@@ -24,7 +24,6 @@ void setup() {
 void loop() {
   char text[4];
   sprintf(text, "%4d", deciSecond);
-  
   sDisplay.DisplayString(text, 0);
   
   if (millis() - timer >= 100) {
