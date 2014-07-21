@@ -180,7 +180,7 @@ void SevSeg::shiftWrite(byte data) {
 	digitalWrite(latchPin, HIGH);
 }
 
-byte flipByte(byte c) {
+byte SevSeg::flipByte(byte c) {
   char r=0;
   for(byte i = 0; i < 8; i++){
     r <<= 1;
@@ -208,8 +208,21 @@ void SevSeg::DisplayString(char* toDisplay, byte DecAposColon) {
 		char characterToDisplay = toDisplay[digit];
 
 		byte character = pgm_read_byte(&characterArray[characterToDisplay]);
-		
-		shiftWrite(~characterToDisplay);
+		//byte disChar = 0b1111001;
+		byte disChar = pgm_read_byte(&characterArray[characterToDisplay]);
+		disChar = disChar << 1;
+		byte flipChar = flipByte(disChar);
+	// 0b1111110, // 0   -> 0b00111111 -> 0b11000000
+	// 0b0110000, // 1   -> 0b00110000 -> 0b11001111
+	// 0b1101101, // 2   -> 0b01011011 -> 0b10100100
+	// 0b1111001, // 3   -> 0b01001111 -> 0b10110000
+	// 0b1111001 		 -> 0b11110010 -> 0b01001111 -> 0b10110000
+
+		//shiftWrite(character);
+		//shiftWrite(~0b0111111);
+		//byte disChar = 0b10000000 ^ 0b01111001; // 
+		//byte disChar = 0b0111111 ^ 0b0110000;
+		shiftWrite(~flipChar);
 		//shiftWrite(0xCC);
 
 		//Service the decimal point, apostrophe and colon
