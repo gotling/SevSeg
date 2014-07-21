@@ -89,13 +89,13 @@ void SevSeg::Begin(boolean mode_in, byte numOfDigits,
 	if(mode == COMMON_ANODE) {
 		DigitOn = HIGH;
 		DigitOff = LOW;
-		SegOn = LOW;
-		SegOff = HIGH;
+		SegOn = 0x00;
+		SegOff = 0xFF;
 	} else {
 		DigitOn = LOW;
 		DigitOff = HIGH;
-		SegOn = HIGH;
-		SegOff = LOW;
+		SegOn = 0xFF;
+		SegOff = 0x00;
 	}
 	
 	//Turn everything Off before setting pin as output
@@ -114,11 +114,7 @@ void SevSeg::Begin(boolean mode_in, byte numOfDigits,
 	digitalWrite(dataPin, LOW);
 	digitalWrite(clockPin, LOW);
 
-	if (SegOff) {
-		shiftWrite(0x00);
-	} else {
-		shiftWrite(0xFF);
-	}
+	shiftWrite(SegOff);
 }
 
 //Set the display brightness
@@ -190,6 +186,13 @@ byte SevSeg::flipByte(byte c) {
   return r;
 }
 
+// Convert the character from strange format in SevSeg header file to
+// something we can display correctly
+byte SevSeg::convertChar(byte character) {
+	byte tmpChar = character << 1;
+	return ~flipByte(tmpChar);
+}
+
 //Refresh Display
 /*******************************************************************************************/
 //Given a string such as "-A32", we display -A32
@@ -203,38 +206,24 @@ void SevSeg::DisplayString(char* toDisplay, byte DecAposColon) {
 		
 		//Here we access the array of segments
 		//This could be cleaned up a bit but it works
-		//displayCharacter(toDisplay[digit-1]); //Now display this digit
 		// displayArray (defined in SevSeg.h) decides which segments are turned on for each number or symbol
 		char characterToDisplay = toDisplay[digit];
 
-		byte character = pgm_read_byte(&characterArray[characterToDisplay]);
-		//byte disChar = 0b1111001;
-		byte disChar = pgm_read_byte(&characterArray[characterToDisplay]);
-		disChar = disChar << 1;
-		byte flipChar = flipByte(disChar);
-	// 0b1111110, // 0   -> 0b00111111 -> 0b11000000
-	// 0b0110000, // 1   -> 0b00110000 -> 0b11001111
-	// 0b1101101, // 2   -> 0b01011011 -> 0b10100100
-	// 0b1111001, // 3   -> 0b01001111 -> 0b10110000
-	// 0b1111001 		 -> 0b11110010 -> 0b01001111 -> 0b10110000
-
-		//shiftWrite(character);
-		//shiftWrite(~0b0111111);
-		//byte disChar = 0b10000000 ^ 0b01111001; // 
-		//byte disChar = 0b0111111 ^ 0b0110000;
-		shiftWrite(~flipChar);
-		//shiftWrite(0xCC);
+		byte character = convertChar(pgm_read_byte(&characterArray[characterToDisplay]));
 
 		//Service the decimal point, apostrophe and colon
-		// if ((DecAposColon & (1<<(digit))) && (digit < 5)) //Test DecAposColon to see if we need to turn on a decimal point
-		// 	digitalWrite(segmentDP, SegOn);
-		
+		if ((DecAposColon & (1<<(digit))) && (digit < 5)) {
+			character = character ^ 0b10000000;
+		}
+
+		shiftWrite(character);
+
 		delayMicroseconds(brightnessDelay + 1); //Display this digit for a fraction of a second (between 1us and 5000us, 500-2000 is pretty good)
 		//The + 1 is a bit of a hack but it removes the possible zero display (0 causes display to become bright and flickery)
 		//If you set this too long, the display will start to flicker. Set it to 25000 for some fun.
 		
 		//Turn off all segments
-		shiftWrite(0xFF);
+		shiftWrite(SegOff);
 		
 		//Turn off this digit
 		digitalWrite(DigitPins[digit], DigitOff);

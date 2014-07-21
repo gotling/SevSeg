@@ -186,7 +186,8 @@ class SevSeg {
 	void displayCharacter(byte characterToDisplay); //Illuminates the correct segments
 	void shiftOut(byte myDataOut);
 	void shiftWrite(byte data);
-	byte flipByte(byte);
+	byte flipByte(byte c);
+	byte convertChar(byte character);
 	
 	//Private Variables
 	boolean mode, numberOfDigits, DigitOn, DigitOff, SegOn, SegOff;
